@@ -1,5 +1,22 @@
 from rest_framework import serializers
-from authentication.models import User
+from authentication.models import User,StudentProfile,AdminProfile
+
+class StudentProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentProfile
+        fields = ['program', 'level', 'status']
+
+    def validate_status(self, value):
+        if value not in ['active', 'inactive']:
+            raise serializers.ValidationError("Status must be either 'active' or 'inactive'.")
+        return value
+
+
+
+class AdminProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdminProfile
+        fields = ['department', 'role_description']
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,10 +28,15 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    student_profile = StudentProfileSerializer(required=False)
+    admin_profile = AdminProfileSerializer(required=False)
 
     class Meta:
         model = User
-        fields = ['full_name', 'email', 'student_id', 'phone_number', 'password', 'role']
+        fields = [
+            'full_name', 'email', 'student_id', 'phone_number',
+            'password', 'role', 'student_profile', 'admin_profile'
+        ]
 
     def validate(self, data):
         role = data.get('role')
@@ -28,17 +50,28 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        student_profile_data = validated_data.pop('student_profile', None)
+        admin_profile_data = validated_data.pop('admin_profile', None)
         password = validated_data.pop('password')
+
         user = User(**validated_data)
         user.set_password(password)
         user.save()
+
+
+        if user.role == 'student' and student_profile_data:
+            StudentProfile.objects.create(user=user, **student_profile_data)
+        elif user.role == 'admin' and admin_profile_data:
+            AdminProfile.objects.create(user=user, **admin_profile_data)
+
         return user
+
 
 
 
 class UserLoginSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=User.ROLE_CHOICES)
-    username = serializers.CharField()  # can be email or student_id
+    username = serializers.CharField()  
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):

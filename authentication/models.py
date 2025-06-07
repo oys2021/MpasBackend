@@ -37,8 +37,33 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
-    USERNAME_FIELD = 'email'  # required for superusers
+    USERNAME_FIELD = 'email'  
     REQUIRED_FIELDS = ['full_name', 'role']
 
     def __str__(self):
         return self.email or self.student_id
+
+
+class StudentProfile(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
+    program = models.CharField(max_length=100)
+    level = models.CharField(max_length=10)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')
+
+    def __str__(self):
+        return f"StudentProfile({self.user.full_name})"
+
+
+
+class AdminProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin_profile')
+    department = models.CharField(max_length=100)
+    role_description = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"AdminProfile({self.user.full_name})"

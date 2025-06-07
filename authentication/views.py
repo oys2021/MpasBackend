@@ -8,7 +8,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,
-    UserSerializer
+    UserSerializer,
+    StudentProfileSerializer,
+    AdminProfileSerializer
 )
 
 
@@ -26,6 +28,7 @@ def register_user(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_user(request):
@@ -41,20 +44,23 @@ def login_user(request):
     return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
 
 
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def user_profile(request):
-    user = request.user
-    serializer = UserSerializer(user)
-    return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-
-
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
     return {
         'refresh': str(refresh),
         'access': str(refresh.access_token),
     }
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_profile(request):
+    user = request.user
+    user_data = UserSerializer(user).data
+    if user.role == 'student' and hasattr(user, 'student_profile'):
+        user_data['student_profile'] = StudentProfileSerializer(user.student_profile).data
+    elif user.role == 'admin' and hasattr(user, 'admin_profile'):
+        user_data['admin_profile'] = AdminProfileSerializer(user.admin_profile).data
+
+    return Response(user_data, status=status.HTTP_200_OK)
+
