@@ -61,9 +61,15 @@ class StudentProfile(models.Model):
 
 
 class AdminProfile(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin_profile')
     department = models.CharField(max_length=100)
     role_description = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')
 
     def __str__(self):
         return f"AdminProfile({self.user.full_name})"

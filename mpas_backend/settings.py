@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-m@1$h#7t0(@prh_sg6$*kys%1(w)3li1!7h(-5(75m$o1q5xu6
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.43.192','127.0.0.1']
+ALLOWED_HOSTS = ['192.168.103.192','127.0.0.1']
 
 
 # Application definition
@@ -55,6 +55,8 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 # CORS_ALLOW_CREDENTIALS = True
 
 # CORS_ALLOWED_ORIGINS = [
@@ -152,5 +154,34 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
+
+
+
+
+
+from decouple import config
+
+
+import certifi
+import ssl
+import smtplib
+
+
+
+
+
+EMAIL_BACKEND = 'authentication.email.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_USE_TLS = False
+EMAIL_PORT = 587
+# EMAIL_USE_SSL = False
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')  
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+
+# EMAIL_PORT = 465  
+# EMAIL_USE_SSL = True  
+# EMAIL_USE_TLS = False
+# EMAIL_TIMEOUT = 15
+
 
 
