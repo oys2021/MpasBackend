@@ -26,20 +26,20 @@ def register_user(request):
 
     if serializer.is_valid():
         user = serializer.save()
-        raw_password = request.data.get('password')  # Get raw password from request
+        raw_password = request.data.get('password')
 
-        # subject = 'Your GCTU Student Account Details'
-        # html_content = f"""
-        # <p>Hello <strong>{user.full_name}</strong>,</p>
-        # <p>Your student portal account has been created.</p>
-        # <p><strong>Login Details:</strong><br>
-        # Student ID: {user.student_id}<br>
-        # PIN (Password): <strong>{raw_password}</strong></p>
-        # <p>Please keep this information safe. Contact administration if you need to change your PIN.</p>
-        # <p>Best regards,<br>GCTU Admin Team</p>
-        # """
+        subject = 'Your GCTU Student Account Details'
+        html_content = f"""
+        <p>Hello <strong>{user.full_name}</strong>,</p>
+        <p>Your student portal account has been created.</p>
+        <p><strong>Login Details:</strong><br>
+        Student ID: {user.student_id}<br>
+        PIN (Password): <strong>{raw_password}</strong></p>
+        <p>Please keep this information safe. Contact administration if you need to change your PIN.</p>
+        <p>Best regards,<br>GCTU Admin Team</p>
+        """
 
-        # send_email_notification(user.email, subject, html_content)
+        send_email_notification(user.email, subject, html_content)
 
         return Response({
             'message': 'User registered successfully. Email sent.',

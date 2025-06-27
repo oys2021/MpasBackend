@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from authentication.models import User,StudentProfile,AdminProfile
+from core.models import ProgramFee, FeeStructure
+from datetime import datetime
 
 class StudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -86,11 +88,27 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user = User(**validated_data)
         user.set_password(password)
         user.save()
-
         user.raw_password = password
 
         if user.role == 'student' and student_profile_data:
-            StudentProfile.objects.create(user=user, **student_profile_data)
+            profile = StudentProfile.objects.create(user=user, **student_profile_data)
+            print(profile.program,profile.level)
+
+            try:
+                program_fee = ProgramFee.objects.get(
+                    program=profile.program,
+                    level=profile.level
+                )
+                FeeStructure.objects.create(
+                    student=user,
+                    academic_year=f"{datetime.now().year}/{datetime.now().year + 1}",
+                    tuition_fee=program_fee.tuition_fee,
+                    hostel_fee=program_fee.hostel_fee,
+                    other_fee=program_fee.other_fee
+                )
+            except ProgramFee.DoesNotExist as e:
+                print(e)
+
         elif user.role == 'admin' and admin_profile_data:
             AdminProfile.objects.create(user=user, **admin_profile_data)
 

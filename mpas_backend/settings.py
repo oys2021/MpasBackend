@@ -14,23 +14,30 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+import environ
+import os
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+env = environ.Env(
+    DEBUG=(bool, True)
+)
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-m@1$h#7t0(@prh_sg6$*kys%1(w)3li1!7h(-5(75m$o1q5xu6'
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+SECRET_KEY = env('SECRET_KEY')
+DEBUG = env('DEBUG')
+
+print("ENV FILE PATH:", os.path.join(BASE_DIR, '.env'))
+print("SECRET_KEY from env:", env('SECRET_KEY', default='NOT FOUND'))
+
+
 
 ALLOWED_HOSTS = ['192.168.103.192','127.0.0.1']
 
 
-# Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -85,6 +92,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'mpas_backend.wsgi.application'
+ASGI_APPLICATION = "mpas_backend.asgi.application"
 
 
 # Database
@@ -134,8 +142,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -156,32 +165,22 @@ REST_FRAMEWORK = {
 }
 
 
-
-
-
-from decouple import config
-
-
-import certifi
-import ssl
-import smtplib
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
 
 
 
 
-
-EMAIL_BACKEND = 'authentication.email.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 465
 EMAIL_USE_TLS = False
-EMAIL_PORT = 587
-# EMAIL_USE_SSL = False
-EMAIL_HOST_USER = config('EMAIL_HOST_USER')  
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
-
-# EMAIL_PORT = 465  
-# EMAIL_USE_SSL = True  
-# EMAIL_USE_TLS = False
-# EMAIL_TIMEOUT = 15
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = 'yawsarfo2019@gmail.com'
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 
 
 
