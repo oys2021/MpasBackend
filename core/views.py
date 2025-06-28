@@ -12,6 +12,7 @@ from .models import Transaction, PaymentHistory
 from authentication.models import User
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from core.serilizers import  *
 
 
 @api_view(['POST'])
@@ -84,3 +85,41 @@ def payment_view(request):
             {"error": f"Something went wrong: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+    
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_pending_payments(request):
+    user = request.user
+    fee_structure = user.fee_structures.last()
+
+    if not fee_structure:
+        return Response({"detail": "No fee structure found for this user."}, status=status.HTTP_404_NOT_FOUND)
+
+    pending_payments = {}
+
+    fee_types = {
+        'tuition': fee_structure.tuition_fee,
+        'hostel': fee_structure.hostel_fee,
+        'other': fee_structure.other_fee
+    }
+
+    for fee_type, required in fee_types.items():
+        paid = fee_structure.get_paid_by_type(fee_type)
+        balance = required - paid
+
+        if balance > 0:
+            pending_payments[fee_type] = round(balance, 2)
+
+    return Response({"pending_payments": pending_payments}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_completed_transactions(request):
+    user = request.user
+    completed_transactions = user.transactions.filter(status='completed').order_by('-transaction_date')
+    serializer = TransactionSerializer(completed_transactions, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
