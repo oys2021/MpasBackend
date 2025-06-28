@@ -123,3 +123,23 @@ def get_completed_transactions(request):
     completed_transactions = user.transactions.filter(status='completed').order_by('-transaction_date')
     serializer = TransactionSerializer(completed_transactions, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_fee_stats(request):
+    user = request.user
+    fee_structure = user.fee_structures.last()
+
+    if not fee_structure:
+        return Response({"detail": "No fee structure found for this user."}, status=status.HTTP_404_NOT_FOUND)
+
+    total_required = fee_structure.total_fee
+    total_paid = fee_structure.get_total_paid()
+    outstanding = fee_structure.get_balance()
+
+    return Response({
+        "total_fee_required": round(total_required, 2),
+        "total_paid": round(total_paid, 2),
+        "outstanding_balance": round(outstanding, 2)
+    }, status=status.HTTP_200_OK)
