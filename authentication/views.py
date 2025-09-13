@@ -7,7 +7,15 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from authentication.models import User, StudentProfile,AdminProfile
 from datetime import datetime, time
 from django.utils.timezone import now, make_aware
-from authentication.utils import send_email_notification 
+from authentication.utils import send_email_notification
+from core.models import Transaction
+from django.db import models
+from django.core.mail import send_mail
+from django.conf import settings
+import random
+import string
+from django.core.cache import cache
+
 
 from .serializers import (
     UserRegistrationSerializer,
@@ -26,7 +34,7 @@ def register_user(request):
 
     if serializer.is_valid():
         user = serializer.save()
-        raw_password = request.data.get('password')
+        raw_password = serializer.validated_data.get('password')
 
         subject = 'Your GCTU Student Account Details'
         html_content = f"""
@@ -52,7 +60,6 @@ def register_user(request):
         "message": "Registration failed",
         "errors": serializer.errors
     }, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 
@@ -101,7 +108,7 @@ def user_profile(request):
 def student_stats(request):
     today = now()
     start_of_month = make_aware(datetime.combine(today.replace(day=1), time.min))
-    
+
     total_students = User.objects.filter(role='student').count()
     total_active_students = StudentProfile.objects.filter(status='active').count()
     total_inactive_students = StudentProfile.objects.filter(status='inactive').count()
@@ -168,7 +175,7 @@ def update_admin(request, email):
 def admin_stats(request):
     today = now()
     start_of_month = make_aware(datetime.combine(today.replace(day=1), time.min))
-    
+
     total_admin = User.objects.filter(role='admin').count()
     total_active_admin = AdminProfile.objects.filter(status='active').count()
     total_inactive_admin = AdminProfile.objects.filter(status='inactive').count()
@@ -183,3 +190,99 @@ def admin_stats(request):
         "total_inactive_admin":total_inactive_admin,
         "new_admin_this_month": new_admin_this_month,
     })
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_stats(request):
+    total_students = User.objects.filter(role='student').count()
+    total_admins = User.objects.filter(role='admin').count()
+
+    # Total amount paid from completed transactions only
+    total_amount_paid = Transaction.objects.filter(status='completed').aggregate(
+        total=models.Sum('amount')
+    )['total'] or 0
+
+    # Active users (students + admins with active profiles)
+    active_students = StudentProfile.objects.filter(status='active').count()
+    active_admins = AdminProfile.objects.filter(status='active').count()
+    total_active_users = active_students + active_admins
+
+    return Response({
+        "total_students": total_students,
+        "total_admins": total_admins,
+        "total_amount_paid": float(total_amount_paid),
+        "total_active_users": total_active_users,
+    })
+
+
+
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def forgot_password(request):
+    email = request.data.get('email')
+
+    try:
+        user = User.objects.get(email=email)
+        # Generate a random token
+        token = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        # Store token in cache with 1-hour expiration
+        cache.set(f'password_reset_{email}', token, timeout=3600)
+
+        # Send email with token
+        subject = 'Password Reset Request - GCTU Payment Portal'
+        html_content = f"""
+        <p>Hello <strong>{user.full_name}</strong>,</p>
+        <p>You have requested to reset your password.</p>
+        <p>Your password reset token is: <strong>{token}</strong></p>
+        <p>This token will expire in 1 hour.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+        <p>Best regards,<br>GCTU Admin Team</p>
+        """
+
+        send_email_notification(user.email, subject, html_content)
+
+        return Response({
+            'message': 'Password reset instructions sent to your email'
+        }, status=status.HTTP_200_OK)
+
+    except User.DoesNotExist:
+        # Don't reveal if email exists or not for security
+        return Response({
+            'message': 'If the email exists, password reset instructions have been sent'
+        }, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password(request):
+    email = request.data.get('email')
+    token = request.data.get('token')
+    new_password = request.data.get('new_password')
+
+    # Verify token
+    cached_token = cache.get(f'password_reset_{email}')
+
+    if not cached_token or cached_token != token:
+        return Response({
+            'message': 'Invalid or expired token'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(email=email)
+        user.set_password(new_password)
+        user.save()
+
+        # Delete the used token
+        cache.delete(f'password_reset_{email}')
+
+        return Response({
+            'message': 'Password has been reset successfully'
+        }, status=status.HTTP_200_OK)
+
+    except User.DoesNotExist:
+        return Response({
+            'message': 'User not found'
+        }, status=status.HTTP_404_NOT_FOUND)

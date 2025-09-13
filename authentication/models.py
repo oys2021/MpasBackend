@@ -28,7 +28,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True, null=True, blank=True)
     student_id = models.CharField(max_length=20, unique=True, null=True, blank=True)
     full_name = models.CharField(max_length=100)
-    phone_number = models.CharField(max_length=20)
+    # phone_number = models.CharField(max_length=20)
+    phone_number = models.CharField(max_length=20, blank=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -37,7 +38,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
-    USERNAME_FIELD = 'email'  
+    USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['full_name', 'role']
 
     def __str__(self):

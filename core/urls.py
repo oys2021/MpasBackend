@@ -7,4 +7,7 @@ urlpatterns=[
     path('payments/pending/', views.get_pending_payments, name='get-pending-payments'),
     path('transactions/completed/', views.get_completed_transactions, name='get-completed-transactions'),
     path('fees/stats/', views.get_fee_stats, name='get-fee-stats'),
+    path('transactions/recent/', views.recent_transactions, name='recent_transactions'),
+    path('transactions/', views.transactions, name='transactions'),
+    path('history/', views.get_student_payment_history, name='student-payment-history'),
 ]

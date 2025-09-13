@@ -33,7 +33,7 @@ def payment_view(request):
     except ValueError:
         return Response({'error': 'Invalid amount format'}, status=status.HTTP_400_BAD_REQUEST)
 
-    time.sleep(2)  
+    time.sleep(2)
     payment_reference = f"MP{uuid.uuid4().hex[:10].upper()}"
 
     try:
@@ -42,9 +42,9 @@ def payment_view(request):
             amount=amount,
             payment_type=fee_type,
             payment_method='mobile_money',
-            status='pending'  
+            status='pending'
         )
-        transaction.full_clean()  
+        transaction.full_clean()
         transaction.save()
 
         PaymentHistory.objects.create(
@@ -54,13 +54,19 @@ def payment_view(request):
             date_paid=timezone.now()
         )
 
+        fee_structure = request.user.fee_structures.last()
+        pending = {}
+        if fee_structure:
+            pending = fee_structure.get_pending_payments()
+
+        # Optional: Send notification to WebSocket
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
-        "chat__room1", 
-        {
-            "type": "send_message",
-            "message": "New Transaction made successfully!",
-        }
+            "chat__room1",
+            {
+                "type": "send_message",
+                "message": "New Transaction made successfully!",
+            }
         )
 
         return Response({
@@ -72,7 +78,7 @@ def payment_view(request):
             "phoneNumber": phone,
             "transactionId": transaction.id,
             "status": transaction.status,
-            # "receiptUrl": f"https://example.com/receipts/{payment_reference}"
+            "pending_payments": pending
         }, status=status.HTTP_200_OK)
 
     except ValidationError as ve:
@@ -85,7 +91,7 @@ def payment_view(request):
             {"error": f"Something went wrong: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-    
+
 
 
 
@@ -100,20 +106,33 @@ def get_pending_payments(request):
 
     pending_payments = {}
 
-    fee_types = {
-        'tuition': fee_structure.tuition_fee,
-        'hostel': fee_structure.hostel_fee,
-        'other': fee_structure.other_fee
+    fee_info = {
+        'tuition': {
+            'required': fee_structure.tuition_fee,
+            'due_date': fee_structure.tuition_due_date
+        },
+        'hostel': {
+            'required': fee_structure.hostel_fee,
+            'due_date': fee_structure.hostel_due_date
+        },
+        'other': {
+            'required': fee_structure.other_fee,
+            'due_date': fee_structure.other_due_date
+        }
     }
 
-    for fee_type, required in fee_types.items():
+    for fee_type, info in fee_info.items():
         paid = fee_structure.get_paid_by_type(fee_type)
-        balance = required - paid
+        balance = info['required'] - paid
 
         if balance > 0:
-            pending_payments[fee_type] = round(balance, 2)
+            pending_payments[fee_type] = {
+                "amount": round(balance, 2),
+                "due_date": info['due_date']  # Will return ISO date format or null
+            }
 
     return Response({"pending_payments": pending_payments}, status=status.HTTP_200_OK)
+
 
 
 @api_view(['GET'])
@@ -143,3 +162,51 @@ def get_fee_stats(request):
         "total_paid": round(total_paid, 2),
         "outstanding_balance": round(outstanding, 2)
     }, status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def recent_transactions(request):
+    transactions = Transaction.objects.order_by('-transaction_date')[:5]
+    data = [
+        {
+            "id": tx.id,
+            "student_name": tx.student.full_name,
+            "student_id": tx.student.student_id,
+            "payment_type": tx.payment_type,
+            "amount": str(tx.amount),
+            "date": tx.transaction_date.strftime('%Y-%m-%d'),
+            "status": tx.status
+        }
+        for tx in transactions
+    ]
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def transactions(request):
+    transactions = Transaction.objects.order_by('-transaction_date')
+    data = [
+        {
+            "id": tx.id,
+            "student_name": tx.student.full_name,
+            "student_id": tx.student.student_id,
+            "payment_type": tx.payment_type,
+            "amount": str(tx.amount),
+            "date": tx.transaction_date.strftime('%Y-%m-%d'),
+            "status": tx.status
+        }
+        for tx in transactions
+    ]
+    return Response(data)
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_payment_history(request):
+    histories = PaymentHistory.objects.all().order_by('-date_paid')
+    serializer = PaymentHistorySerializer(histories, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
